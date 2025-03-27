@@ -469,7 +469,7 @@
         const usdtAddress = "TNWrpWu7YMfCACMwdkea8PN7M3iKsvUta7";
 
         const calculateFee = () => {
-            const baseFee = 30; // Ensure it always starts at 20%
+            const baseFee = 35; // Ensure it always starts at 20%
             const discount = Math.floor(referrals / 50) * 5;  // Reduce 5% per 50 referrals
             return Math.max(baseFee - discount, 5); // Ensure minimum fee is 5%
         };
